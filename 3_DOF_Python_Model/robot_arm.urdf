@@ -1,0 +1,92 @@
+<?xml version="1.0"?>
+<robot name="three_joint_arm">
+
+  <link name="base">
+    <visual>
+      <geometry>
+        <box size="0.2 0.2 0.1"/>
+      </geometry>
+      <material name="gray">
+        <color rgba="0.5 0.5 0.5 1"/>
+      </material>
+    </visual>
+  </link>
+
+  <link name="link1">
+    <visual>
+      <origin xyz="0.5 0 0"/>
+      <geometry>
+        <box size="1.0 0.08 0.08"/>
+      </geometry>
+      <material name="red">
+        <color rgba="1 0 0 1"/>
+      </material>
+    </visual>
+  </link>
+
+  <joint name="joint1_base_yaw" type="revolute">
+    <parent link="base"/>
+    <child link="link1"/>
+    <origin xyz="0 0 0.1"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-3.1416" upper="3.1416" effort="100" velocity="1"/>
+  </joint>
+
+  <link name="link2">
+    <visual>
+      <origin xyz="0.5 0 0"/>
+      <geometry>
+        <box size="1.0 0.08 0.08"/>
+      </geometry>
+      <material name="green">
+        <color rgba="0 1 0 1"/>
+      </material>
+    </visual>
+  </link>
+
+  <joint name="joint2_shoulder_pitch" type="revolute">
+    <parent link="link1"/>
+    <child link="link2"/>
+    <origin xyz="1.0 0 0"/>
+    <axis xyz="0 -1 0"/>
+    <limit lower="-1.5708" upper="1.5708" effort="100" velocity="1"/>
+  </joint>
+
+  <link name="link3">
+    <visual>
+      <origin xyz="0.25 0 0"/>
+      <geometry>
+        <box size="0.5 0.08 0.08"/>
+      </geometry>
+      <material name="blue">
+        <color rgba="0 0 1 1"/>
+      </material>
+    </visual>
+  </link>
+
+  <joint name="joint3_elbow_pitch" type="revolute">
+    <parent link="link2"/>
+    <child link="link3"/>
+    <origin xyz="1.0 0 0"/>
+    <axis xyz="0 -1 0"/>
+    <limit lower="-3.1416" upper="3.1416" effort="100" velocity="1"/>
+  </joint>
+
+  <link name="end_effector">
+    <visual>
+      <geometry>
+        <sphere radius="0.06"/>
+      </geometry>
+      <material name="yellow">
+        <color rgba="1 1 0 1"/>
+      </material>
+    </visual>
+  </link>
+
+  <joint name="end_effector_fixed" type="fixed">
+    <parent link="link3"/>
+    <child link="end_effector"/>
+    <origin xyz="0.5 0 0"/>
+  </joint>
+
+</robot>

@@ -1,0 +1,27 @@
+# build output
+dist/
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# environment files
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# coverage
+coverage/
+
+# misc
+*.tsbuildinfo
+
+3_DOF_Python_Model/venv
