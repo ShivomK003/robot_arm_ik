@@ -1,16 +1,19 @@
+import { forwardRef } from "react";
+import type { Group } from "three";
+
 import Joint from "./Joint";
 import Link from "./Link";
+
 import { ROBOT_DIMENSIONS } from "../utils/constants";
+import { degToRad } from "../utils/utilityfns";
 
 type RobotArmProps = {
   jointAngles: number[];
 };
 
-function degToRad(degrees: number) {
-  return (degrees * Math.PI) / 180;
-}
 
-export default function RobotArm({ jointAngles }: RobotArmProps) {
+
+function RobotArm({ jointAngles }: RobotArmProps, endEffectorRef: React.Ref<Group>) {
   const [j1, j2, j3, j4, j5, j6] = jointAngles.map(degToRad);
 
   const {
@@ -88,6 +91,14 @@ export default function RobotArm({ jointAngles }: RobotArmProps) {
                             <boxGeometry args={[0.18, 0.04, 0.04]} />
                             <meshStandardMaterial color="#ffffff" />
                           </mesh>
+
+                          {/* End Effector Marker */}
+                          <group ref={endEffectorRef} position={[0.5, 0, 0]}>
+                            <mesh>
+                              <sphereGeometry args={[0.045, 24, 24]} />
+                              <meshStandardMaterial color="#00ff88" />
+                            </mesh>
+                          </group>
                         </group>
                       </group>
                     </group>
@@ -101,3 +112,5 @@ export default function RobotArm({ jointAngles }: RobotArmProps) {
     </group>
   );
 }
+
+export default forwardRef(RobotArm);

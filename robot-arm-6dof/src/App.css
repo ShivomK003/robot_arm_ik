@@ -12,3 +12,20 @@ body,
   height: 100vh;
   background: #111;
 }
+
+.fk-panel {
+  position: absolute;
+  right: 20px;
+  top: 20px;
+  z-index: 10;
+  background: rgba(20, 20, 20, 0.9);
+  color: white;
+  padding: 16px;
+  border-radius: 8px;
+  font-family: monospace;
+  min-width: 200px;
+}
+
+.fk-panel h3 {
+  margin-top: 0;
+}
