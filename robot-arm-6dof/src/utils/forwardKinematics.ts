@@ -29,9 +29,9 @@ export function computeForwardKinematics(jointAnglesDeg: number[]): FKResult {
     FOREARM_LENGTH,
     WRIST_LENGTH,
     TOOL_LENGTH,
+    TCP_OFFSET
   } = ROBOT_DIMENSIONS;
 
-  const TCP_OFFSET = 0.5
 
   let T = new Matrix4().identity();
 
