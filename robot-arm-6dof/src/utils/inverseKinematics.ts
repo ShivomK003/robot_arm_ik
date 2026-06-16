@@ -1,11 +1,19 @@
-import { Vector3 } from "three";
+import { Vector3, Quaternion } from "three";
 import { computeForwardKinematics } from "./forwardKinematics";
 import { JOINT_LIMITS } from "./constants";
+
+export type IKTarget = {
+  position: Vector3;
+  quaternion?: Quaternion;
+};
 
 export type IKResult = {
   angles: number[];
   position: Vector3;
-  error: number;
+  quaternion: Quaternion;
+  positionError: number;
+  orientationError: number;
+  totalError: number;
   success: boolean;
 };
 
@@ -30,21 +38,42 @@ function mutateAngles(angles: number[], stepSize: number) {
   });
 }
 
-function evaluate(angles: number[], target: Vector3) {
+function quaternionError(a: Quaternion, b: Quaternion) {
+  const dot = Math.abs(a.dot(b));
+  const clampedDot = Math.min(1, Math.max(-1, dot));
+
+  return 2 * Math.acos(clampedDot);
+}
+
+function evaluate(angles: number[], target: IKTarget) {
   const fk = computeForwardKinematics(angles);
+
+  const positionError = fk.position.distanceTo(target.position);
+
+  const orientationError = target.quaternion
+    ? quaternionError(fk.quaternion, target.quaternion)
+    : 0;
+
+  const totalError = positionError + orientationError * 0.08;
+
   return {
     position: fk.position,
-    error: fk.position.distanceTo(target),
+    quaternion: fk.quaternion,
+    positionError,
+    orientationError,
+    totalError,
   };
 }
 
-export function solveIK(target: Vector3): IKResult {
+export function solveIK(target: IKTarget): IKResult {
   let bestAngles = randomAngles();
   let bestEval = evaluate(bestAngles, target);
 
-  const restarts = 40;
-  const iterations = 250;
-  const successThreshold = 0.05;
+  const restarts = 50;
+  const iterations = 300;
+
+  const positionThreshold = 0.05;
+  const orientationThreshold = 0.6;
 
   for (let r = 0; r < restarts; r++) {
     let currentAngles = randomAngles();
@@ -56,33 +85,39 @@ export function solveIK(target: Vector3): IKResult {
       const candidateAngles = mutateAngles(currentAngles, stepSize);
       const candidateEval = evaluate(candidateAngles, target);
 
-      if (candidateEval.error < currentEval.error) {
+      if (candidateEval.totalError < currentEval.totalError) {
         currentAngles = candidateAngles;
         currentEval = candidateEval;
       }
 
-      if (currentEval.error < bestEval.error) {
+      if (currentEval.totalError < bestEval.totalError) {
         bestAngles = currentAngles;
         bestEval = currentEval;
       }
 
       stepSize *= 0.985;
 
-      if (bestEval.error < successThreshold) {
+      const positionGood = bestEval.positionError < positionThreshold;
+      const orientationGood =
+        !target.quaternion || bestEval.orientationError < orientationThreshold;
+
+      if (positionGood && orientationGood) {
         return {
           angles: bestAngles,
-          position: bestEval.position,
-          error: bestEval.error,
+          ...bestEval,
           success: true,
         };
       }
     }
   }
 
+  const success =
+    bestEval.positionError < positionThreshold &&
+    (!target.quaternion || bestEval.orientationError < orientationThreshold);
+
   return {
     angles: bestAngles,
-    position: bestEval.position,
-    error: bestEval.error,
-    success: bestEval.error < successThreshold,
+    ...bestEval,
+    success,
   };
 }

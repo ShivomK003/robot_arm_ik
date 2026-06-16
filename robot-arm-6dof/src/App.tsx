@@ -1,7 +1,7 @@
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, PerspectiveCamera } from "@react-three/drei";
 import { Leva, useControls } from "leva";
-import { useRef, useState, useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { Group } from "three";
 import { Vector3 } from "three";
 
@@ -9,10 +9,20 @@ import RobotArm from "./components/RobotArm";
 import WorkspaceCloud from "./components/WorkspaceCloud";
 import TargetMarker from "./components/TargetMarker";
 
-import { findNearestWorkspacePoint, type WorkspacePoint } from "./utils/workspace";
+import {
+  generateRobotDataset,
+  downloadCSV,
+} from "./utils/datasetGenerator";
+
+import {
+  findNearestWorkspacePoint,
+  type WorkspacePoint,
+} from "./utils/workspace";
+
 import { JOINT_LIMITS } from "./utils/constants";
 import { computeForwardKinematics } from "./utils/forwardKinematics";
-import { solveIK, type IKResult} from "./utils/inverseKinematics";
+import { solveIK, type IKResult } from "./utils/inverseKinematics";
+
 import "./App.css";
 
 function Scene({
@@ -39,7 +49,6 @@ function Scene({
 
     const position = new Vector3();
     endEffectorRef.current.getWorldPosition(position);
-
     onEndEffectorUpdate(position);
   });
 
@@ -60,6 +69,7 @@ function Scene({
       />
 
       <TargetMarker position={targetPosition} reachable={targetReachable} />
+
       <RobotArm ref={endEffectorRef} jointAngles={jointAngles} />
 
       <OrbitControls />
@@ -69,15 +79,45 @@ function Scene({
 
 export default function App() {
   const joints = useControls("Joint Angles", {
-    j1_baseYaw: { value: 0, min: JOINT_LIMITS.j1_baseYaw.min, max: JOINT_LIMITS.j1_baseYaw.max, step: 1 },
-    j2_shoulderPitch: { value: 20, min: JOINT_LIMITS.j2_shoulderPitch.min, max: JOINT_LIMITS.j2_shoulderPitch.max, step: 1 },
-    j3_elbowPitch: { value: -30, min: JOINT_LIMITS.j3_elbowPitch.min, max: JOINT_LIMITS.j3_elbowPitch.max, step: 1 },
-    j4_wristPitch: { value: 0, min: JOINT_LIMITS.j4_wristPitch.min, max: JOINT_LIMITS.j4_wristPitch.max, step: 1 },
-    j5_wristYaw: { value: 0, min: JOINT_LIMITS.j5_wristYaw.min, max: JOINT_LIMITS.j5_wristYaw.max, step: 1 },
-    j6_wristRoll: { value: 0, min: JOINT_LIMITS.j6_wristRoll.min, max: JOINT_LIMITS.j6_wristRoll.max, step: 1 },
+    j1_baseYaw: {
+      value: 0,
+      min: JOINT_LIMITS.j1_baseYaw.min,
+      max: JOINT_LIMITS.j1_baseYaw.max,
+      step: 1,
+    },
+    j2_shoulderPitch: {
+      value: 20,
+      min: JOINT_LIMITS.j2_shoulderPitch.min,
+      max: JOINT_LIMITS.j2_shoulderPitch.max,
+      step: 1,
+    },
+    j3_elbowPitch: {
+      value: -30,
+      min: JOINT_LIMITS.j3_elbowPitch.min,
+      max: JOINT_LIMITS.j3_elbowPitch.max,
+      step: 1,
+    },
+    j4_wristPitch: {
+      value: 0,
+      min: JOINT_LIMITS.j4_wristPitch.min,
+      max: JOINT_LIMITS.j4_wristPitch.max,
+      step: 1,
+    },
+    j5_wristYaw: {
+      value: 0,
+      min: JOINT_LIMITS.j5_wristYaw.min,
+      max: JOINT_LIMITS.j5_wristYaw.max,
+      step: 1,
+    },
+    j6_wristRoll: {
+      value: 0,
+      min: JOINT_LIMITS.j6_wristRoll.min,
+      max: JOINT_LIMITS.j6_wristRoll.max,
+      step: 1,
+    },
   });
 
-  const jointAngles = [
+  const manualJointAngles = [
     joints.j1_baseYaw,
     joints.j2_shoulderPitch,
     joints.j3_elbowPitch,
@@ -87,21 +127,37 @@ export default function App() {
   ];
 
   const workspace = useControls("Workspace", {
-  showWorkspace: true,
-  sampleCount: {
-    value: 5000,
-    min: 1000,
-    max: 50000,
-    step: 1000,
-  },});
-
-  const [workspaceSamples, setWorkspaceSamples] = useState<WorkspacePoint[]>([]);
+    showWorkspace: true,
+    sampleCount: {
+      value: 5000,
+      min: 1000,
+      max: 50000,
+      step: 1000,
+    },
+  });
 
   const targetControls = useControls("Target", {
     x: { value: 1.5, min: -3.5, max: 3.5, step: 0.05 },
     y: { value: 0.8, min: -2.5, max: 3.5, step: 0.05 },
     z: { value: 0.5, min: -3.5, max: 3.5, step: 0.05 },
   });
+
+  const datasetControls = useControls("Dataset", {
+    sampleCount: {
+      value: 10000,
+      min: 1000,
+      max: 100000,
+      step: 1000,
+    },
+  });
+
+  const [workspaceSamples, setWorkspaceSamples] = useState<WorkspacePoint[]>([]);
+  const [eePosition, setEePosition] = useState(new Vector3());
+  const [ikAngles, setIkAngles] = useState<number[] | null>(null);
+  const [ikResult, setIkResult] = useState<IKResult | null>(null);
+
+  const activeJointAngles = ikAngles ?? manualJointAngles;
+
   const targetPosition = useMemo(
     () => new Vector3(targetControls.x, targetControls.y, targetControls.z),
     [targetControls.x, targetControls.y, targetControls.z]
@@ -109,7 +165,6 @@ export default function App() {
 
   const nearestInfo = useMemo(() => {
     if (workspaceSamples.length === 0) return null;
-
     return findNearestWorkspacePoint(targetPosition, workspaceSamples);
   }, [targetPosition, workspaceSamples]);
 
@@ -118,14 +173,7 @@ export default function App() {
   const targetReachable =
     nearestInfo !== null && nearestInfo.distance < REACHABILITY_THRESHOLD;
 
-
-  const fkResult = computeForwardKinematics(jointAngles);
-  const [ikAngles, setIkAngles] = useState<number[] | null>(null);
-  const [ikResult, setIkResult] = useState<IKResult | null>(null);
-  const activeJointAngles = ikAngles ?? jointAngles;
-
-
-  const [eePosition, setEePosition] = useState(new Vector3());
+  const fkResult = computeForwardKinematics(activeJointAngles);
 
   return (
     <div className="app">
@@ -143,15 +191,14 @@ export default function App() {
         <p>X: {fkResult.position.x.toFixed(3)}</p>
         <p>Y: {fkResult.position.y.toFixed(3)}</p>
         <p>Z: {fkResult.position.z.toFixed(3)}</p>
+
         <h4>TCP Orientation</h4>
         <p>Roll: {fkResult.rotationDegrees.roll.toFixed(2)}°</p>
         <p>Pitch: {fkResult.rotationDegrees.pitch.toFixed(2)}°</p>
         <p>Yaw: {fkResult.rotationDegrees.yaw.toFixed(2)}°</p>
 
-        <h4>Error</h4>
-        <p>
-          {eePosition.distanceTo(fkResult.position).toFixed(6)}
-        </p>
+        <h4>FK Validation Error</h4>
+        <p>{eePosition.distanceTo(fkResult.position).toFixed(6)}</p>
 
         <h3>Target</h3>
         <p>X: {targetPosition.x.toFixed(3)}</p>
@@ -160,7 +207,6 @@ export default function App() {
 
         <h4>Reachability</h4>
         <p>{targetReachable ? "Reachable ✅" : "Unreachable ❌"}</p>
-
         <p>
           Nearest Distance:{" "}
           {nearestInfo ? nearestInfo.distance.toFixed(4) : "Loading..."}
@@ -169,7 +215,11 @@ export default function App() {
         <button
           className="solve-button"
           onClick={() => {
-            const result = solveIK(targetPosition);
+            const result = solveIK({
+              position: targetPosition,
+              quaternion: fkResult.quaternion,
+            });
+
             setIkAngles(result.angles);
             setIkResult(result);
             console.log(result);
@@ -177,9 +227,53 @@ export default function App() {
         >
           Solve IK
         </button>
+
+        <button
+          className="solve-button"
+          onClick={() => {
+            setIkAngles(null);
+            setIkResult(null);
+          }}
+        >
+          Reset to Manual Controls
+        </button>
+
         <h4>IK Result</h4>
-        <p>{ikResult?.success ? "Success ✅" : "Failed ❌"}</p>
-        <p>Error: {ikResult?.error.toFixed(4)}</p>
+        <p>
+          {ikResult
+            ? ikResult.success
+              ? "Success ✅"
+              : "Failed ❌"
+            : "Not solved yet"}
+        </p>
+        <p>
+          Position Error:{" "}
+          {ikResult ? ikResult.positionError.toFixed(4) : "-"}
+        </p>
+        <p>
+          Orientation Error:{" "}
+          {ikResult ? ikResult.orientationError.toFixed(4) : "-"}
+        </p>
+        <p>
+          Total Error:{" "}
+          {ikResult ? ikResult.totalError.toFixed(4) : "-"}
+        </p>
+
+        <h3>Dataset</h3>
+        <p>Samples: {datasetControls.sampleCount}</p>
+
+        <button
+          className="solve-button"
+          onClick={() => {
+            const csv = generateRobotDataset(datasetControls.sampleCount);
+            downloadCSV(
+              csv,
+              `robot_6dof_dataset_${datasetControls.sampleCount}.csv`
+            );
+          }}
+        >
+          Generate Dataset
+        </button>
       </div>
 
       <Canvas shadows>
