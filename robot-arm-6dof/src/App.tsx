@@ -12,6 +12,7 @@ import TargetMarker from "./components/TargetMarker";
 import { findNearestWorkspacePoint, type WorkspacePoint } from "./utils/workspace";
 import { JOINT_LIMITS } from "./utils/constants";
 import { computeForwardKinematics } from "./utils/forwardKinematics";
+import { solveIK, type IKResult} from "./utils/inverseKinematics";
 import "./App.css";
 
 function Scene({
@@ -119,6 +120,10 @@ export default function App() {
 
 
   const fkResult = computeForwardKinematics(jointAngles);
+  const [ikAngles, setIkAngles] = useState<number[] | null>(null);
+  const [ikResult, setIkResult] = useState<IKResult | null>(null);
+  const activeJointAngles = ikAngles ?? jointAngles;
+
 
   const [eePosition, setEePosition] = useState(new Vector3());
 
@@ -138,6 +143,10 @@ export default function App() {
         <p>X: {fkResult.position.x.toFixed(3)}</p>
         <p>Y: {fkResult.position.y.toFixed(3)}</p>
         <p>Z: {fkResult.position.z.toFixed(3)}</p>
+        <h4>TCP Orientation</h4>
+        <p>Roll: {fkResult.rotationDegrees.roll.toFixed(2)}°</p>
+        <p>Pitch: {fkResult.rotationDegrees.pitch.toFixed(2)}°</p>
+        <p>Yaw: {fkResult.rotationDegrees.yaw.toFixed(2)}°</p>
 
         <h4>Error</h4>
         <p>
@@ -156,11 +165,26 @@ export default function App() {
           Nearest Distance:{" "}
           {nearestInfo ? nearestInfo.distance.toFixed(4) : "Loading..."}
         </p>
+
+        <button
+          className="solve-button"
+          onClick={() => {
+            const result = solveIK(targetPosition);
+            setIkAngles(result.angles);
+            setIkResult(result);
+            console.log(result);
+          }}
+        >
+          Solve IK
+        </button>
+        <h4>IK Result</h4>
+        <p>{ikResult?.success ? "Success ✅" : "Failed ❌"}</p>
+        <p>Error: {ikResult?.error.toFixed(4)}</p>
       </div>
 
       <Canvas shadows>
         <Scene
-          jointAngles={jointAngles}
+          jointAngles={activeJointAngles}
           onEndEffectorUpdate={setEePosition}
           showWorkspace={workspace.showWorkspace}
           workspaceSampleCount={workspace.sampleCount}

@@ -23,9 +23,34 @@ body,
   padding: 16px;
   border-radius: 8px;
   font-family: monospace;
-  min-width: 200px;
+  min-width: 260px;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .fk-panel h3 {
   margin-top: 0;
+}
+.fk-panel::-webkit-scrollbar {
+  width: 8px;
+}
+
+.fk-panel::-webkit-scrollbar-track {
+  background: #222;
+}
+
+.fk-panel::-webkit-scrollbar-thumb {
+  background: #555;
+  border-radius: 4px;
+}
+
+.fk-panel::-webkit-scrollbar-thumb:hover {
+  background: #777;
+}
+
+.solve-button {
+  margin-top: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
 }
