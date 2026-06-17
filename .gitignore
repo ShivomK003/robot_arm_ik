@@ -25,3 +25,4 @@ coverage/
 *.tsbuildinfo
 
 3_DOF_Python_Model/venv
+backend/venv

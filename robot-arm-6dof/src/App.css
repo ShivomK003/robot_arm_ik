@@ -24,6 +24,7 @@ body,
   border-radius: 8px;
   font-family: monospace;
   min-width: 260px;
+  max-width: 300px;
   max-height: calc(100vh - 40px);
   overflow-y: auto;
   box-sizing: border-box;
